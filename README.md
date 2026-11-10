@@ -360,6 +360,37 @@ Pour proposer une modification :
 5. Créez des commits au format Conventional Commits, puis poussez votre branche vers votre fork.
 6. Ouvrez une pull request vers le dépôt d'origine en précisant les changements, les vérifications effectuées et les éventuelles limites.
 
+### Publication automatique des releases
+
+Le workflow `.github/workflows/release.yml` publie automatiquement une release
+GitHub lorsque vous poussez un tag stable au format `vMAJEUR.MINEUR.CORRECTIF`,
+par exemple `v1.0.2`. Le titre reprend le tag et GitHub génère les notes de release.
+Les tags de préversion comme `v1.1.0-rc.1` sont ignorés.
+
+Commitez et poussez d'abord le workflow et les modifications à publier. Le commit
+visé par le tag doit contenir le workflow. Depuis votre branche de publication :
+
+```powershell
+git status
+git push origin main
+git tag -a v1.0.2 -m "Release v1.0.2"
+git push origin v1.0.2
+```
+
+Adaptez le numéro à chaque nouvelle version. Suivez l'exécution dans l'onglet
+**Actions**, puis retrouvez la publication dans **Releases**. Aucun jeton personnel
+n'est nécessaire : le workflow utilise `GITHUB_TOKEN` avec la permission
+`contents: write`. GitHub Actions doit être autorisé sur le dépôt.
+
+Une release déjà existante, même à l'état de brouillon, est laissée intacte lors
+d'une nouvelle exécution. Le workflow ne crée pas les tags et ne calcule pas le
+prochain numéro de version. Il ne publie pas rétroactivement les tags déjà poussés.
+
+Les notes générées par GitHub reposent notamment sur les pull requests fusionnées
+et les contributeurs ; ce n'est pas un changelog calculé à partir des types
+Conventional Commits. Vous pouvez compléter les notes après publication.
+Les archives ZIP et tar.gz du code sont fournies automatiquement par GitHub.
+
 ### Format des commits
 
 Respectez la spécification [Conventional Commits 1.0.0](https://www.conventionalcommits.org/fr/v1.0.0/) :
