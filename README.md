@@ -479,11 +479,15 @@ Pour proposer une modification :
 
 Le workflow `.github/workflows/release.yml` publie automatiquement une release
 GitHub lorsque vous poussez un tag stable au format `vMAJEUR.MINEUR.CORRECTIF`,
-par exemple `v1.0.2`. Le titre reprend le tag et GitHub génère les notes de release.
+par exemple `v1.0.2`. Le titre reprend le tag et
+[git-cliff](https://git-cliff.org/docs/) génère un fichier `CHANGELOG.md`.
+Le contenu de ce fichier sert de notes de release ; le même fichier est joint
+à la release et peut être téléchargé dans ses assets.
 Les tags de préversion comme `v1.1.0-rc.1` sont ignorés.
 
 Commitez et poussez d'abord le workflow et les modifications à publier. Le commit
-visé par le tag doit contenir le workflow. Depuis votre branche de publication :
+visé par le tag doit contenir le workflow et sa configuration `cliff.toml`.
+Depuis votre branche de publication :
 
 ```powershell
 git status
@@ -501,9 +505,25 @@ Une release déjà existante, même à l'état de brouillon, est laissée intact
 d'une nouvelle exécution. Le workflow ne crée pas les tags et ne calcule pas le
 prochain numéro de version. Il ne publie pas rétroactivement les tags déjà poussés.
 
-Les notes générées par GitHub reposent notamment sur les pull requests fusionnées
-et les contributeurs ; ce n'est pas un changelog calculé à partir des types
-Conventional Commits. Vous pouvez compléter les notes après publication.
+Le workflow récupère l'historique Git complet et les tags, puis utilise
+`git-cliff --current` pour générer le changelog de la version ciblée : les commits
+depuis le précédent tag stable pris en compte dans son historique, ou l'ensemble
+de son historique pour la première version. Le fichier ne contient pas le changelog
+cumulé de toutes les versions. Les tags de préversion ne servent pas de limites
+entre deux versions stables.
+
+La configuration `cliff.toml` classe les Conventional Commits par catégories
+(`Features`, `Fixes`, `Documentation`, etc.), signale les ruptures de compatibilité
+et conserve les commits non conventionnels dans `Other`. Les messages restent dans
+leur langue d'origine. Modifiez cette configuration pour adapter le rendu.
+
+`CHANGELOG.md` est généré dans le runner GitHub Actions : il n'est ni committé dans
+le dépôt ni ajouté aux archives du code source. Il est disponible séparément en
+pièce jointe de chaque nouvelle release. Aucun fichier local n'est nécessaire,
+et aucune installation de git-cliff sur votre poste n'est requise.
+Les releases existantes et leurs pièces jointes restent inchangées lors d'une relance.
+Les versions de git-cliff et des actions sont fixées dans le workflow.
+
 Les archives ZIP et tar.gz du code sont fournies automatiquement par GitHub.
 
 ### Format des commits
