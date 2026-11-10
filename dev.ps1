@@ -34,12 +34,19 @@ try {
             if ((Test-Path $overridePath) -and -not ([System.IO.File]::ReadAllText($overridePath).StartsWith($marker))) {
                 throw 'compose.override.yaml existe et n''a pas ete genere par init. Deplacez votre configuration avant de continuer.'
             }
-            $versions = Get-LatestStableVersions
-            Write-Host "Versions stables : PHP $($versions.PHP), FrankenPHP $($versions.FrankenPHP), Symfony $($versions.Symfony), Composer $($versions.Composer)."
+            $composeEnvironment = & docker compose config --environment
+            if ($LASTEXITCODE -ne 0) { throw 'Impossible de lire les preferences de versions dans .env.' }
+            $preferences = Get-VersionPreferences -ComposeEnvironment $composeEnvironment
+            $versions = Resolve-ProjectVersions -Preferences $preferences
+            $composeConfig = & docker compose config --format json
+            if ($LASTEXITCODE -ne 0) { throw 'Impossible de determiner le nom du projet Docker Compose.' }
+            $projectName = ($composeConfig | ConvertFrom-Json).name
+            $baseImage = "$projectName-base"
+            Write-Host "Versions selectionnees : PHP $($versions.PHP), FrankenPHP $($versions.FrankenPHP), Symfony $($versions.Symfony), Composer $($versions.Composer)."
             $buildArgs = @('--build-arg', "FRANKENPHP_IMAGE=$($versions.FrankenPHPImage)", '--build-arg', "COMPOSER_VERSION=$($versions.Composer)")
             # --no-cache also refreshes APT and stable PECL extensions for each new project.
-            Invoke-Docker (@('build', '--pull', '--no-cache', '--target', 'base', '-t', 'docker-symfony-base') + $buildArgs + @('.'))
-            Invoke-Docker @('run', '--rm', '--env', "EXPECTED_PHP_VERSION=$($versions.PHP)", '--env', "EXPECTED_COMPOSER_VERSION=$($versions.Composer)", '--env', "EXPECTED_FRANKENPHP_VERSION=$($versions.FrankenPHP)", '--entrypoint', 'php', 'docker-symfony-base', '/usr/local/lib/check-versions.php')
+            Invoke-Docker (@('build', '--pull', '--no-cache', '--target', 'base', '-t', $baseImage) + $buildArgs + @('.'))
+            Invoke-Docker @('run', '--rm', '--env', "EXPECTED_PHP_VERSION=$($versions.PHP)", '--env', "EXPECTED_COMPOSER_VERSION=$($versions.Composer)", '--env', "EXPECTED_FRANKENPHP_VERSION=$($versions.FrankenPHP)", '--entrypoint', 'php', $baseImage, '/usr/local/lib/check-versions.php')
             $override = @"
 $marker
 # Symfony selected at creation: $($versions.Symfony)
@@ -53,10 +60,10 @@ services:
             [System.IO.File]::WriteAllText($overridePath, $override + "`n", [System.Text.UTF8Encoding]::new($false))
             $appPath = (Resolve-Path ./app).Path
             $initPath = (Resolve-Path ./docker/init-project.sh).Path
-            Invoke-Docker @('run', '--rm', '--env', "SYMFONY_BRANCH=$($versions.SymfonyBranch)", '--env', "EXPECTED_SYMFONY_VERSION=$($versions.Symfony)", '--mount', "type=bind,source=$appPath,target=/export", '--mount', "type=bind,source=$initPath,target=/init-project.sh,readonly", '--entrypoint', 'sh', 'docker-symfony-base', '/init-project.sh', $flavor)
+            Invoke-Docker @('run', '--rm', '--env', "SYMFONY_BRANCH=$($versions.SymfonyBranch)", '--env', "EXPECTED_SYMFONY_VERSION=$($versions.Symfony)", '--mount', "type=bind,source=$appPath,target=/export", '--mount', "type=bind,source=$initPath,target=/init-project.sh,readonly", '--entrypoint', 'sh', $baseImage, '/init-project.sh', $flavor)
             # Reuse the freshly built base layers; do not refresh versions mid-installation.
             Invoke-Docker @('compose', 'build', 'php')
-            Write-Host 'Projet cree. Lancez ./dev.ps1 start puis ouvrez http://localhost:8000'
+            Write-Host 'Projet cree. Lancez ./dev.ps1 start puis ouvrez http://localhost:8000 (ou le port HTTP_PORT configure).'
         }
         'start' {
             if (-not (Test-Path ./app/composer.lock)) { throw 'Lancez ./dev.ps1 init avant le premier demarrage.' }

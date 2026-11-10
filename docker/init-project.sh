@@ -2,11 +2,13 @@
 set -eu
 : "${SYMFONY_BRANCH:?Version Symfony manquante}"
 : "${EXPECTED_SYMFONY_VERSION:?Version Symfony exacte manquante}"
-composer create-project "symfony/skeleton:${SYMFONY_BRANCH}.*" /tmp/symfony --stability=stable --no-interaction --prefer-dist
+composer create-project "symfony/skeleton:${SYMFONY_BRANCH}.*" /tmp/symfony --stability=stable --no-interaction --prefer-dist --no-install --no-scripts
 cd /tmp/symfony
+php /usr/local/lib/prepare-symfony.php
 composer config minimum-stability stable
 composer config prefer-stable true
 composer config extra.symfony.docker false
+composer install --no-interaction --prefer-dist
 if [ "${1:-}" = "webapp" ]; then
     composer require webapp --no-interaction
 fi

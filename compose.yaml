@@ -1,8 +1,6 @@
-name: docker-symfony
-
 services:
   php:
-    image: docker-symfony-dev
+    image: ${COMPOSE_PROJECT_NAME}-dev
     build:
       context: .
       target: dev
@@ -46,7 +44,7 @@ services:
   # No bind mount is used by the HTTP server above.
   tools:
     profiles: [tools]
-    image: docker-symfony-dev
+    image: ${COMPOSE_PROJECT_NAME}-dev
     environment: *app-environment
     working_dir: /app
     volumes:

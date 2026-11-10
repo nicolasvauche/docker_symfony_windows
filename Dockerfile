@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git unzip curl 
 RUN install-php-extensions intl mbstring zip bcmath gd \
     pdo_sqlite sqlite3 pdo_pgsql pgsql mongodb-stable \
     dom simplexml xml xmlreader xmlwriter curl
+RUN if php -r 'exit(PHP_VERSION_ID < 80500 ? 0 : 1);'; then install-php-extensions opcache; fi
 RUN test -n "$COMPOSER_VERSION" \
     && curl -fsSL "https://getcomposer.org/download/${COMPOSER_VERSION}/composer.phar" -o /tmp/composer.phar \
     && curl -fsSL "https://getcomposer.org/download/${COMPOSER_VERSION}/composer.phar.sha256sum" -o /tmp/composer.sha256sum \
@@ -19,6 +20,7 @@ COPY docker/php-dev.ini /usr/local/etc/php/conf.d/99-dev.ini
 COPY docker/Caddyfile /etc/caddy/Caddyfile
 COPY docker/check-extensions.php /usr/local/lib/check-extensions.php
 COPY docker/check-versions.php /usr/local/lib/check-versions.php
+COPY docker/prepare-symfony.php /usr/local/lib/prepare-symfony.php
 ENV COMPOSER_ALLOW_SUPERUSER=1 \
     COMPOSER_CACHE_DIR=/tmp/composer-cache \
     SYMFONY_DOCKER=0
