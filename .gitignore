@@ -1,0 +1,17 @@
+# IDE
+/.idea/
+/.vscode/
+
+# Configuration locale Docker
+/.env
+/.env.*
+!/.env.example
+
+# Application générée : conserver uniquement le dossier vide
+/app/*
+!/app/.gitkeep
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+Desktop.ini

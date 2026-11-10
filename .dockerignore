@@ -1,0 +1,8 @@
+.git
+.env
+README.md
+*.ps1
+app/vendor
+app/var
+app/node_modules
+app/.git

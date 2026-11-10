@@ -1,0 +1,65 @@
+name: docker-symfony
+
+services:
+  php:
+    image: docker-symfony-dev
+    build:
+      context: .
+      target: dev
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8000}:80"
+    environment: &app-environment
+      APP_ENV: dev
+      APP_DEBUG: "1"
+      DATABASE_URL: "${DATABASE_URL:-sqlite:////app/var/data/app.db}"
+    volumes:
+      - app_data:/app/var/data
+      - app_logs:/app/var/log
+    tmpfs:
+      - /app/var/cache
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app
+          initial_sync: true
+          ignore:
+            - vendor/
+            - var/
+            - .git/
+            - node_modules/
+            - composer.json
+            - composer.lock
+            - symfony.lock
+        - action: rebuild
+          path: ./app/composer.json
+        - action: rebuild
+          path: ./app/composer.lock
+        - action: rebuild
+          path: ./app/symfony.lock
+        - action: rebuild
+          path: ./docker
+        - action: rebuild
+          path: ./Dockerfile
+
+  # One-off CLI only: generated source files are written back to Windows.
+  # No bind mount is used by the HTTP server above.
+  tools:
+    profiles: [tools]
+    image: docker-symfony-dev
+    environment: *app-environment
+    working_dir: /app
+    volumes:
+      - ./app:/app
+      - /app/vendor
+      - app_data:/app/var/data
+      - app_logs:/app/var/log
+      - composer_cache:/tmp/composer-cache
+    tmpfs:
+      - /app/var/cache
+    entrypoint: []
+
+volumes:
+  app_data:
+  app_logs:
+  composer_cache:
