@@ -7,6 +7,9 @@
 /.env.*
 !/.env.example
 
+# Versions resolved locally for each generated application
+/compose.override.yaml
+
 # Application générée : conserver uniquement le dossier vide
 /app/*
 !/app/.gitkeep

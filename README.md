@@ -13,6 +13,62 @@ sans services de base de données supplémentaires.
 Docker Desktop démarré en mode conteneurs Linux, avec le moteur WSL2,
 et Docker Compose 2.32 ou plus récent (la version locale 5.6.1 convient).
 Aucun PHP ni Composer n'est nécessaire sur Windows.
+Une connexion Internet est nécessaire à la création du projet pour consulter les
+versions officielles et télécharger les images et dépendances.
+
+## Récupérer le projet et préparer Git
+
+### Commencer un nouveau projet Symfony
+
+**Téléchargez l'archive ZIP de ce dépôt, ne le clonez pas.** Extrayez-la dans le
+dossier de votre nouveau projet. Vous disposez ainsi du squelette Docker sans
+reprendre l'historique Git du dépôt d'origine.
+
+Depuis ce dossier, créez votre propre dépôt Git :
+
+```powershell
+git init
+git branch -M main
+```
+
+Effectuez ensuite l'installation décrite dans la section suivante. Avant le premier
+commit, adaptez le `.gitignore` à votre application :
+
+- Retirez les règles `/app/*` et `!/app/.gitkeep` afin de versionner le code Symfony.
+  Le fichier `app/.gitignore` généré par Symfony continuera d'exclure ses dépendances,
+  son cache et ses secrets locaux.
+- Retirez la règle `/compose.override.yaml` afin de conserver les versions choisies
+  pour votre application et de pouvoir reconstruire son environnement.
+- Conservez les exclusions des fichiers `.env` locaux et de votre IDE. Vérifiez
+  qu'aucun secret ni fichier généré indésirable n'est ajouté au commit.
+
+Une fois l'application créée et les exclusions adaptées :
+
+```powershell
+git add .
+git diff --cached --stat
+git diff --cached
+git commit -m "chore: initialize Symfony project"
+```
+
+Créez également un dépôt distant vide sur votre hébergeur Git, puis associez-le
+à votre dépôt local et publiez votre branche :
+
+```powershell
+# Remplacez cette valeur par l'URL de votre propre dépôt.
+git remote add origin "URL_DE_VOTRE_DEPOT"
+git push -u origin main
+```
+
+### Contribuer au squelette Docker
+
+Pour contribuer à ce projet, **créez un fork, puis clonez votre fork**. Travaillez
+sur une branche dédiée et ouvrez une pull request vers le dépôt d'origine.
+Conservez les exclusions de `app/` et de `compose.override.yaml` : les applications
+créées pour tester le squelette ne doivent pas faire partie de votre contribution.
+
+Vos commits doivent respecter [Conventional Commits](https://www.conventionalcommits.org/fr/v1.0.0/).
+Les règles et exemples sont détaillés dans la section [Contribution](#contribution).
 
 ## Installation
 
@@ -149,11 +205,43 @@ cette commande directement : conservez `--watch` pour synchroniser les sources.
 
 ### Versions
 
-Configuration préparée le 10 novembre 2026 : Symfony **8.1.x** (stable publiée :
-8.1.11), PHP **8.5.12**, FrankenPHP **1.13.5**, Debian Trixie et Composer 2.
-L'initialisation résout le dernier correctif Symfony 8.1 disponible, puis
-`app/composer.lock` conserve les versions exactes. Aucun service de base de données
-n'est créé.
+À chaque `./dev.ps1 init`, le script consulte les sources officielles pour sélectionner :
+
+- la dernière version stable de PHP publiée sur php.net ;
+- la dernière release stable de FrankenPHP publiée sur GitHub ;
+- la dernière version stable de Symfony annoncée par symfony.com ;
+- la dernière version stable de Composer publiée sur getcomposer.org.
+
+Les versions alpha, bêta et RC sont exclues. Le script construit un tag FrankenPHP
+avec les versions exactes de FrankenPHP et PHP, sur Debian Trixie, et sélectionne
+le binaire Composer officiel avec sa version exacte et sa somme SHA-256. L'installation vérifie les versions
+réelles de PHP, FrankenPHP, Composer et du framework Symfony avant de valider le projet.
+
+Si une API est inaccessible, si son format change ou si l'image combinant les
+nouvelles versions n'est pas encore publiée, `init` échoue : il ne revient pas
+silencieusement à une ancienne version compatible. Vous pouvez réessayer une fois
+les services accessibles et les images publiées. La sélection correspond aux
+versions annoncées au moment de la consultation, pas aux éventuelles publications
+survenues pendant le téléchargement ou la compilation.
+
+Le build initial utilise `--pull --no-cache` pour actualiser les images, les paquets
+APT et les extensions. Les extensions livrées avec PHP suivent sa version ; MongoDB
+utilise le canal PECL stable. Les paquets système suivent les dépôts Debian Trixie.
+Caddy et les autres composants intégrés suivent l'image officielle FrankenPHP :
+leurs versions ne sont pas mises à jour indépendamment. Docker Desktop et Compose
+restent des prérequis à mettre à jour sur votre machine.
+
+Les versions sélectionnées sont enregistrées localement dans `compose.override.yaml`,
+chargé automatiquement par Docker Compose. Ce fichier est ignoré par Git dans le
+squelette ; conservez-le avec un projet existant pour pouvoir le reconstruire.
+N'utilisez pas ce nom pour une configuration personnelle : `init` refuse de remplacer
+un fichier qu'il n'a pas généré. Ne supprimez pas ce fichier tant que vous utilisez
+l'application associée.
+
+Les démarrages suivants ne recherchent pas de nouvelles versions et ne modifient
+pas `composer.lock`. Un projet existant ne change donc pas automatiquement de
+version majeure. Chaque nouveau projet résout à nouveau les dernières versions
+stables. Aucun service de base de données n'est créé.
 
 ### Bases de données et extensions
 
@@ -183,32 +271,43 @@ donc notamment la base SQLite et les logs.**
 
 ```powershell
 docker compose config --quiet
+.\tests\versions.Tests.ps1
 .\dev.ps1 check
 ```
 
 `check` vérifie les versions, les exigences Composer et les extensions de bases.
+Le script `tests/versions.Tests.ps1` vérifie sans réseau la sélection des versions
+stables, le passage à de futures versions majeures et le rejet des préversions
+ou d'une résolution impossible.
 Testez également une modification de contrôleur ou de template avec Watch actif :
 elle doit apparaître après synchronisation, sans copie de `var/cache` vers Windows.
 
-Les versions de PHP et FrankenPHP sont explicitement fixées dans le Dockerfile.
-Pour une future mise à jour, vérifiez les versions et le tag officiel, modifiez
-`FRANKENPHP_IMAGE`, puis exécutez `docker compose build --pull php` et relancez `start`.
-Symfony reste volontairement sur la branche stable 8.1, sans préversion 8.2.
-Conservez `composer.lock` et `symfony.lock` dans Git.
+Pour une nouvelle application, utilisez `./dev.ps1 init` avec un dossier `app/`
+vide : les versions stables seront de nouveau résolues. Pour un projet existant,
+les mises à niveau restent une opération explicite à préparer et à tester ;
+`start` reconstruit avec les versions sélectionnées et installe `composer.lock`.
+Conservez `composer.lock`, `symfony.lock` et `compose.override.yaml` avec ce projet.
+Un build Docker direct doit recevoir les arguments `FRANKENPHP_IMAGE` et
+`COMPOSER_VERSION` ; le chemin pris en charge est `init`, puis `start` ou Compose,
+qui charge le fichier de versions généré.
 
 La configuration est destinée au développement local, avec HTTP lié uniquement
 à `127.0.0.1`, le profiler et les erreurs de développement. Ce n'est pas une
 configuration de production.
 
-Validation sur cette machine : syntaxe Compose et PowerShell vérifiable sans
-moteur. Le build, la disponibilité effective du tag d'image, l'installation des
-extensions et les temps de réponse doivent être vérifiés une fois Docker Desktop
-démarré et Docker Hub accessible.
+Validation effectuée le 10 novembre 2026 : résolution sur les API officielles,
+tests hors ligne du résolveur, syntaxe Compose et PowerShell, build de l'image de
+base, vérification des versions réelles et des extensions, requête SQLite et
+création d'une application Symfony web complète dans un conteneur temporaire.
+Ces contrôles ne constituent pas une mesure des temps de réponse HTTP.
 
 Références officielles :
 
 - https://symfony.com/releases
+- https://symfony.com/releases.json
 - https://www.php.net/downloads.php
+- https://www.php.net/releases/index.php?json
+- https://getcomposer.org/versions
 - https://github.com/php/frankenphp/releases/latest
 - https://frankenphp.dev/docs/docker/
 - https://docs.docker.com/compose/how-tos/file-watch/
@@ -249,10 +348,39 @@ via les issues et les pull requests du dépôt.
 Pour proposer une modification :
 
 1. Décrivez le problème ou le comportement attendu et les étapes pour le reproduire.
-2. Préparez une branche avec des modifications ciblées et mettez à jour la documentation concernée.
+2. Créez un fork du dépôt, clonez votre fork et préparez une branche avec des modifications ciblées. Mettez à jour la documentation concernée.
 3. Vérifiez la configuration avec `docker compose config --quiet`, puis testez le démarrage et les commandes concernées avec Docker Desktop.
 4. Si la modification touche les volumes ou Watch, vérifiez la synchronisation des sources et l'absence de synchronisation de `var/` et `vendor/`.
-5. Ouvrez une pull request en précisant les changements, les vérifications effectuées et les éventuelles limites.
+5. Créez des commits au format Conventional Commits, puis poussez votre branche vers votre fork.
+6. Ouvrez une pull request vers le dépôt d'origine en précisant les changements, les vérifications effectuées et les éventuelles limites.
+
+### Format des commits
+
+Respectez la spécification [Conventional Commits 1.0.0](https://www.conventionalcommits.org/fr/v1.0.0/) :
+
+```text
+type(scope optionnel): description
+```
+
+Utilisez `feat` pour une fonctionnalité, `fix` pour une correction et, selon la
+nature du changement, `docs`, `test`, `refactor`, `build`, `ci` ou `chore`.
+Le scope est facultatif ; lorsqu'il est présent, il précise la partie concernée.
+
+```text
+feat(docker): ajouter une extension PHP
+fix(watch): corriger la synchronisation des sources
+docs: préciser les commandes de cache
+test: vérifier le rejet des préversions
+```
+
+Signalez une rupture de compatibilité avec `!` avant les deux-points ou un pied
+de message `BREAKING CHANGE:`, et expliquez les adaptations nécessaires :
+
+```text
+feat(config)!: modifier le format du fichier de versions
+
+BREAKING CHANGE: régénérez le fichier de versions avant de reconstruire l'image.
+```
 
 Conservez le vouvoiement dans la documentation et les messages destinés à l'utilisateur.
 Les contributions à ce dépôt sont proposées sous la même licence GPLv3.
