@@ -8,6 +8,12 @@ les dépendances et le cache restent côté Linux pour éviter les E/S lentes en
 Windows et Docker. Les extensions SQLite, PostgreSQL et MongoDB sont incluses,
 sans services de base de données supplémentaires.
 
+> [!WARNING]
+> **Cet environnement est réservé au développement local. Ne l'utilisez pas tel quel en production.**
+> Le mode debug, l'affichage des erreurs PHP, les dépendances de développement et
+> Compose Watch sont activés. Un déploiement en production nécessite une configuration
+> dédiée, notamment pour la sécurité, les secrets, HTTPS et les dépendances installées.
+
 ## Prérequis
 
 Docker Desktop démarré en mode conteneurs Linux, avec le moteur WSL2,
