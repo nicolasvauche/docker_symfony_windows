@@ -9,7 +9,6 @@ services:
     environment: &app-environment
       APP_ENV: dev
       APP_DEBUG: "1"
-      DATABASE_URL: "${DATABASE_URL:-sqlite:////app/var/data/app.db}"
     volumes:
       - app_data:/app/var/data
       - app_logs:/app/var/log

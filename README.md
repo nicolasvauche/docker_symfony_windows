@@ -338,8 +338,9 @@ Aucun service de base de données n'est créé.
 
 ### Bases de données et extensions
 
-SQLite fonctionne immédiatement via `pdo_sqlite` et `sqlite3`. Par défaut,
-`DATABASE_URL=sqlite:////app/var/data/app.db`. Le volume `app_data` conserve le fichier
+SQLite fonctionne immédiatement via `pdo_sqlite` et `sqlite3`. L'initialisation écrit
+`DATABASE_URL="sqlite:////app/var/data/app.db"` dans `app/.env`, après les recettes
+Symfony Flex, pour les variantes `webapp` et `skeleton`. Le volume `app_data` conserve le fichier
 quand vous arrêtez ou reconstruisez le service.
 
 PostgreSQL : extensions `pdo_pgsql` et `pgsql`. MongoDB : extension `mongodb`
@@ -347,15 +348,44 @@ stable, sans ODM ni bibliothèque PHP MongoDB ajoutés automatiquement.
 Extensions usuelles ajoutées : `intl`, `mbstring`, `zip`, `bcmath`, `gd`,
 DOM/XML et cURL. OPcache est intégré à PHP 8.5.
 
-Pour personnaliser le port ou DATABASE_URL, copiez `.env.example` vers `.env`
-à la racine de votre projet, à côté de `compose.yaml`, puis relancez `start`. Ce `.env` configure Compose ;
-`app/.env` et `app/.env.local` configurent Symfony. Le `DATABASE_URL` défini par
-Compose est prioritaire sur les fichiers dotenv Symfony.
+Le `.env` à la racine, à côté de `compose.yaml`, configure Docker Compose
+(port HTTP, nom du projet, versions). Il ne configure pas la connexion Doctrine.
+Pour personnaliser celle-ci, créez ou modifiez **`app/.env.local`**, comme dans un
+projet Symfony classique. Ne versionnez pas ce fichier contenant vos identifiants.
 
-Pour un futur PostgreSQL dont le port est publié sur Windows : utilisez
-`host.docker.internal` comme hôte. Pour des services sur un réseau Docker partagé,
-on ajoutera ce réseau et leurs noms DNS lors de leur création. Le dossier PostgreSQL
-existant n'a pas été modifié.
+Exemple pour PostgreSQL avec un port publié sur Windows :
+
+```dotenv
+DATABASE_URL="postgresql://app:VOTRE_MOT_DE_PASSE@host.docker.internal:5432/nom_de_la_base?serverVersion=16&charset=utf8"
+```
+
+Adaptez les identifiants, le port publié, le nom de la base et la version du serveur.
+Depuis le conteneur PHP, `127.0.0.1` désigne PHP lui-même. `host.docker.internal`
+permet de joindre le port publié sur Windows. Si les deux services partagent un
+réseau Docker, utilisez le nom DNS du service PostgreSQL et son port interne.
+
+Compose n'injecte plus `DATABASE_URL` : Symfony lit `app/.env`, puis applique
+ses surcharges habituelles, notamment `app/.env.local`. Une variable réellement
+injectée dans le conteneur par votre propre configuration reste prioritaire.
+Le conteneur CLI lit directement les fichiers locaux ; Compose Watch synchronise
+leurs modifications vers le serveur web. Gardez `start` actif pour cette synchronisation.
+
+Pour un projet créé avec l'ancienne version du squelette :
+
+1. Supprimez la ligne `DATABASE_URL` du bloc `environment` de `compose.yaml`.
+   Le service `tools` hérite de ce bloc : vérifiez qu'aucun autre fichier Compose
+   ne réinjecte cette variable.
+2. Transférez votre connexion du `.env` racine vers `app/.env.local`, puis retirez
+   l'ancienne définition du `.env` racine. Si vous souhaitez conserver SQLite,
+   utilisez `DATABASE_URL="sqlite:////app/var/data/app.db"` dans `app/.env`.
+3. Arrêtez Watch avec `Ctrl+C`, puis lancez `.\dev.ps1 stop` et `.\dev.ps1 start`
+   pour recréer le serveur sans l'ancienne variable. Ne relancez pas `init` sur votre projet.
+
+Vous pouvez ensuite créer la base PostgreSQL si nécessaire :
+
+```powershell
+.\dev.ps1 console doctrine:database:create --if-not-exists
+```
 
 `stop` conserve les données. **`docker compose down -v` supprime les volumes,
 donc notamment la base SQLite et les logs.**

@@ -12,6 +12,10 @@ composer install --no-interaction --prefer-dist
 if [ "${1:-}" = "webapp" ]; then
     composer require webapp --no-interaction
 fi
+# Keep the default in Symfony dotenv so .env.local can override it normally.
+# Apply after Flex recipes, which may otherwise select PostgreSQL by default.
+sed -i '/^DATABASE_URL=/d' .env
+printf '\n# Default database for the Docker development environment.\nDATABASE_URL="sqlite:////app/var/data/app.db"\n' >> .env
 # Never export a project silently resolved to an older compatible Symfony release.
 php -r 'require "vendor/autoload.php"; $actual = Composer\InstalledVersions::getPrettyVersion("symfony/framework-bundle"); if (ltrim($actual, "v") !== getenv("EXPECTED_SYMFONY_VERSION")) { fwrite(STDERR, "Version Symfony inattendue : ".$actual."\n"); exit(1); }'
 composer check-platform-reqs
